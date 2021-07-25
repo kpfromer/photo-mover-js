@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import exifr from 'exifr';
 import * as path from 'path';
+import Tokenizr from 'tokenizr';
 
 export interface File {
   location: string;
@@ -64,4 +65,60 @@ export async function fetchMetadata(
       metadata: await exifr.parse(location),
     })),
   );
+}
+
+// type StringToken = {
+//   kind: 'string';
+//   value: string;
+// };
+
+// type VariableToken = {
+//   kind: 'variable';
+//   name: string;
+// };
+
+// type Token = StringToken | VariableToken;
+
+const lexer = new Tokenizr();
+
+lexer.rule(/\*[^*]*\*/, (ctx, match) => {
+  const value = match[0];
+  ctx.accept('id', value.slice(1, value.length - 1));
+});
+lexer.rule(/[^*]*/, (ctx, _match) => {
+  ctx.accept('string');
+});
+
+/**
+ * Tokenizes the output path for generating output paths.
+ * TODO: update below example
+ * `/path/to/*year*` -> [{ type: 'string', value: '/path/to' }, {type: 'year'}]
+ */
+// function parseOutputPath(output: string): Token[] {
+//  output.
+// }
+
+/**
+ * Generates a function to map file metadata to an absolute path.
+ */
+export function generateOutputter(output: string): (metadata: Record<string, string>) => string {
+  const tokens = lexer.input(output).tokens();
+
+  return (metadata) => {
+    // const chunks: string[] = [];
+    const outputPath = path.join(
+      ...tokens.map((token) => {
+        switch (token.type) {
+          case 'string':
+            return token.value;
+          case 'id':
+            // TODO: better mapping
+            return metadata[token.value];
+          default:
+            return '';
+        }
+      }),
+    );
+    return outputPath;
+  };
 }
